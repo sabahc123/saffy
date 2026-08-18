@@ -1,8 +1,14 @@
 import { useRouter } from 'expo-router';
-import { Pressable, StyleSheet, Text, View } from 'react-native';
+import {
+  Pressable,
+  StyleSheet,
+  Text,
+  View,
+} from 'react-native';
 
 export default function HomeScreen() {
   const router = useRouter();
+
   return (
     <View style={styles.container}>
       <Text style={styles.title}>Time to learn!</Text>
@@ -12,14 +18,14 @@ export default function HomeScreen() {
       </Text>
 
       <Pressable
-          style={styles.addButton}
-          onPress={() => router.push('/create-topic')}
->
-          <Text style={styles.addButtonText}>+</Text>
-        </Pressable>
-      </View>
-    );
-  }
+        style={styles.addButton}
+        onPress={() => router.push('/create-topic')}
+      >
+        <Text style={styles.addButtonText}>+</Text>
+      </Pressable>
+    </View>
+  );
+}
 
 const styles = StyleSheet.create({
   container: {
