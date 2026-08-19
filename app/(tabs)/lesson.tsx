@@ -2,6 +2,7 @@ import { useLocalSearchParams, useRouter } from 'expo-router';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import {
     Alert,
+    Keyboard,
     KeyboardAvoidingView,
     Platform,
     Pressable,
@@ -14,6 +15,7 @@ import {
 type Prompt = {
   question: string;
   answer: string;
+  acceptedAnswers?: string[];
 };
 
 type LessonAnswer = {
@@ -21,6 +23,7 @@ type LessonAnswer = {
   correctAnswer: string;
   userAnswer: string;
   skipped: boolean;
+  isCorrect: boolean;
 };
 
 export default function LessonScreen() {
@@ -42,6 +45,7 @@ export default function LessonScreen() {
   const [currentIndex, setCurrentIndex] = useState(0);
   const [userAnswer, setUserAnswer] = useState('');
   const [lessonAnswers, setLessonAnswers] = useState<LessonAnswer[]>([]);
+  const [feedback, setFeedback] = useState<LessonAnswer | null>(null);
 
   const answerInputRef = useRef<TextInput>(null);
 
@@ -66,6 +70,36 @@ export default function LessonScreen() {
 
   const currentPrompt = shuffledPrompts[currentIndex];
 
+  /*
+   * Normalise answers before comparing them.
+   * Capitalisation, extra spaces and leading English articles
+   * should not affect whether an answer is considered correct.
+   */
+  function normaliseAnswer(answer: string) {
+    return answer
+      .trim()
+      .toLowerCase()
+      .replace(/\s+/g, ' ')
+      .replace(/^(a|an|the)\s+/i, '');
+  }
+
+  // Check the primary answer and any alternatives the user has chosen to accept.
+  function checkAnswer(prompt: Prompt, submittedAnswer: string) {
+    const acceptableAnswers = [
+      prompt.answer,
+      ...(prompt.acceptedAnswers ?? []),
+    ];
+
+    const normalisedSubmittedAnswer =
+      normaliseAnswer(submittedAnswer);
+
+    return acceptableAnswers.some(
+      (acceptableAnswer) =>
+        normaliseAnswer(acceptableAnswer) ===
+        normalisedSubmittedAnswer
+    );
+  }
+
   // Ask for confirmation before abandoning the current lesson.
   function confirmQuitLesson() {
     Alert.alert(
@@ -85,51 +119,67 @@ export default function LessonScreen() {
     );
   }
 
-  // Record the response and advance to the next prompt.
-  function moveToNextQuestion(answer: LessonAnswer) {
+  // Show feedback briefly before moving to the next prompt.
+  function recordAnswer(answer: LessonAnswer) {
     const updatedAnswers = [...lessonAnswers, answer];
+
     setLessonAnswers(updatedAnswers);
+    setFeedback(answer);
+
+    Keyboard.dismiss();
 
     const isLastQuestion =
       currentIndex === shuffledPrompts.length - 1;
 
-    if (isLastQuestion) {
-      // Results screen will be connected here next.
-      console.log(updatedAnswers);
-      return;
-    }
-
-    setCurrentIndex((current) => current + 1);
-    setUserAnswer('');
-
     setTimeout(() => {
-      answerInputRef.current?.focus();
-    }, 100);
+      if (isLastQuestion) {
+        // Results screen will be connected here next.
+        console.log(updatedAnswers);
+        return;
+      }
+
+      setCurrentIndex((current) => current + 1);
+      setUserAnswer('');
+      setFeedback(null);
+
+      setTimeout(() => {
+        answerInputRef.current?.focus();
+      }, 100);
+    }, 1200);
   }
 
   function submitAnswer() {
-    if (!currentPrompt || !userAnswer.trim()) {
+    if (!currentPrompt || !userAnswer.trim() || feedback) {
       return;
     }
 
-    moveToNextQuestion({
+    const submittedAnswer = userAnswer.trim();
+
+    const isCorrect = checkAnswer(
+      currentPrompt,
+      submittedAnswer
+    );
+
+    recordAnswer({
       question: currentPrompt.question,
       correctAnswer: currentPrompt.answer,
-      userAnswer: userAnswer.trim(),
+      userAnswer: submittedAnswer,
       skipped: false,
+      isCorrect,
     });
   }
 
   function skipQuestion() {
-    if (!currentPrompt) {
+    if (!currentPrompt || feedback) {
       return;
     }
 
-    moveToNextQuestion({
+    recordAnswer({
       question: currentPrompt.question,
       correctAnswer: currentPrompt.answer,
       userAnswer: '',
       skipped: true,
+      isCorrect: false,
     });
   }
 
@@ -188,31 +238,59 @@ export default function LessonScreen() {
               autoCapitalize="none"
               returnKeyType="done"
               onSubmitEditing={submitAnswer}
+              editable={!feedback}
             />
           </View>
 
-          <Pressable
-            style={[
-              styles.submitButton,
-              !userAnswer.trim() &&
-                styles.submitButtonDisabled,
-            ]}
-            disabled={!userAnswer.trim()}
-            onPress={submitAnswer}
-          >
-            <Text style={styles.submitButtonText}>
-              Submit Answer
-            </Text>
-          </Pressable>
+          {feedback ? (
+            <View style={styles.feedbackContainer}>
+              <Text
+                style={
+                  feedback.isCorrect
+                    ? styles.correctFeedback
+                    : styles.incorrectFeedback
+                }
+              >
+                {feedback.isCorrect
+                  ? '✓ Correct'
+                  : '✕ Incorrect'}
+              </Text>
 
-          <Pressable
-            style={styles.skipButton}
-            onPress={skipQuestion}
-          >
-            <Text style={styles.skipButtonText}>
-              Skip
-            </Text>
-          </Pressable>
+              {!feedback.isCorrect && (
+                <Text style={styles.correctAnswer}>
+                  Correct answer:{' '}
+                  <Text style={styles.correctAnswerText}>
+                    {feedback.correctAnswer}
+                  </Text>
+                </Text>
+              )}
+            </View>
+          ) : (
+            <>
+              <Pressable
+                style={[
+                  styles.submitButton,
+                  !userAnswer.trim() &&
+                    styles.submitButtonDisabled,
+                ]}
+                disabled={!userAnswer.trim()}
+                onPress={submitAnswer}
+              >
+                <Text style={styles.submitButtonText}>
+                  Submit Answer
+                </Text>
+              </Pressable>
+
+              <Pressable
+                style={styles.skipButton}
+                onPress={skipQuestion}
+              >
+                <Text style={styles.skipButtonText}>
+                  Skip
+                </Text>
+              </Pressable>
+            </>
+          )}
         </View>
       )}
     </KeyboardAvoidingView>
@@ -321,5 +399,31 @@ const styles = StyleSheet.create({
   skipButtonText: {
     fontSize: 15,
     color: '#666666',
+  },
+
+  feedbackContainer: {
+    alignItems: 'center',
+    paddingVertical: 16,
+  },
+
+  correctFeedback: {
+    fontSize: 22,
+    fontWeight: '600',
+  },
+
+  incorrectFeedback: {
+    fontSize: 22,
+    fontWeight: '600',
+  },
+
+  correctAnswer: {
+    fontSize: 16,
+    marginTop: 10,
+    color: '#666666',
+  },
+
+  correctAnswerText: {
+    fontWeight: '600',
+    color: '#000000',
   },
 });

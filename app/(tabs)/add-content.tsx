@@ -2,13 +2,19 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { useEffect, useRef, useState } from 'react';
 import {
-    Pressable,
-    ScrollView,
-    StyleSheet,
-    Text,
-    TextInput,
-    View,
+  Pressable,
+  ScrollView,
+  StyleSheet,
+  Text,
+  TextInput,
+  View,
 } from 'react-native';
+
+type Prompt = {
+  question: string;
+  answer: string;
+  acceptedAnswers: string[];
+};
 
 export default function AddContentScreen() {
   const { topicName, editIndex } = useLocalSearchParams();
@@ -16,9 +22,8 @@ export default function AddContentScreen() {
 
   const [question, setQuestion] = useState('');
   const [answer, setAnswer] = useState('');
-  const [items, setItems] = useState<
-    { question: string; answer: string }[]
-  >([]);
+  const [acceptedAnswersText, setAcceptedAnswersText] = useState('');
+  const [items, setItems] = useState<Prompt[]>([]);
   const [editingIndex, setEditingIndex] = useState<number | null>(null);
   const [hasLoaded, setHasLoaded] = useState(false);
 
@@ -29,28 +34,30 @@ export default function AddContentScreen() {
       return;
     }
 
+    const acceptedAnswers = acceptedAnswersText
+      .split(',')
+      .map((item) => item.trim())
+      .filter(Boolean);
+
+    const prompt: Prompt = {
+      question: question.trim(),
+      answer: answer.trim(),
+      acceptedAnswers,
+    };
+
     if (editingIndex !== null) {
       const updatedItems = [...items];
-
-      updatedItems[editingIndex] = {
-        question: question.trim(),
-        answer: answer.trim(),
-      };
+      updatedItems[editingIndex] = prompt;
 
       setItems(updatedItems);
       setEditingIndex(null);
     } else {
-      setItems([
-        ...items,
-        {
-          question: question.trim(),
-          answer: answer.trim(),
-        },
-      ]);
+      setItems([...items, prompt]);
     }
 
     setQuestion('');
     setAnswer('');
+    setAcceptedAnswersText('');
 
     questionInputRef.current?.focus();
   }
@@ -60,6 +67,9 @@ export default function AddContentScreen() {
 
     setQuestion(item.question);
     setAnswer(item.answer);
+    setAcceptedAnswersText(
+      item.acceptedAnswers?.join(', ') ?? ''
+    );
     setEditingIndex(index);
 
     questionInputRef.current?.focus();
@@ -76,14 +86,31 @@ export default function AddContentScreen() {
       if (savedItems) {
         const parsedItems = JSON.parse(savedItems);
 
-        setItems(parsedItems);
+        // Older prompts may not yet contain acceptedAnswers.
+        const normalisedItems: Prompt[] = parsedItems.map(
+          (item: {
+            question: string;
+            answer: string;
+            acceptedAnswers?: string[];
+          }) => ({
+            question: item.question,
+            answer: item.answer,
+            acceptedAnswers: item.acceptedAnswers ?? [],
+          })
+        );
+
+        setItems(normalisedItems);
 
         if (editIndex !== undefined) {
           const index = Number(editIndex);
+          const item = normalisedItems[index];
 
-          if (parsedItems[index]) {
-            setQuestion(parsedItems[index].question);
-            setAnswer(parsedItems[index].answer);
+          if (item) {
+            setQuestion(item.question);
+            setAnswer(item.answer);
+            setAcceptedAnswersText(
+              item.acceptedAnswers.join(', ')
+            );
             setEditingIndex(index);
           }
         }
@@ -145,6 +172,23 @@ export default function AddContentScreen() {
         autoCapitalize="none"
       />
 
+      <Text style={styles.label}>
+        Also accept (optional)
+      </Text>
+
+      <TextInput
+        style={styles.input}
+        placeholder="e.g. novel, a book"
+        value={acceptedAnswersText}
+        onChangeText={setAcceptedAnswersText}
+        autoCorrect={false}
+        autoCapitalize="none"
+      />
+
+      <Text style={styles.acceptedAnswersHint}>
+        Separate alternative answers with commas.
+      </Text>
+
       <Pressable style={styles.addButton} onPress={addItem}>
         <Text style={styles.addButtonText}>
           {editingIndex !== null ? 'Update' : 'Add'}
@@ -161,7 +205,15 @@ export default function AddContentScreen() {
                 {index + 1}. {item.question}
               </Text>
 
-              <Text style={styles.itemAnswer}>{item.answer}</Text>
+              <Text style={styles.itemAnswer}>
+                {item.answer}
+              </Text>
+
+              {item.acceptedAnswers.length > 0 && (
+                <Text style={styles.itemAcceptedAnswers}>
+                  Also accept: {item.acceptedAnswers.join(', ')}
+                </Text>
+              )}
             </View>
 
             <Pressable onPress={() => editItem(index)}>
@@ -190,7 +242,8 @@ export default function AddContentScreen() {
         <Text
           style={[
             styles.doneButtonText,
-            items.length < 10 && styles.doneButtonTextDisabled,
+            items.length < 10 &&
+              styles.doneButtonTextDisabled,
           ]}
         >
           Done
@@ -242,6 +295,13 @@ const styles = StyleSheet.create({
     marginBottom: 16,
   },
 
+  acceptedAnswersHint: {
+    fontSize: 13,
+    color: '#777777',
+    marginTop: -8,
+    marginBottom: 16,
+  },
+
   addButton: {
     width: '100%',
     padding: 16,
@@ -290,6 +350,12 @@ const styles = StyleSheet.create({
 
   itemAnswer: {
     fontSize: 16,
+    marginTop: 4,
+  },
+
+  itemAcceptedAnswers: {
+    fontSize: 13,
+    color: '#666666',
     marginTop: 4,
   },
 

@@ -13,18 +13,32 @@ import {
 type Prompt = {
   question: string;
   answer: string;
+  acceptedAnswers?: string[];
 };
 
 export default function TopicSummaryScreen() {
   const { topicName, items } = useLocalSearchParams();
   const router = useRouter();
 
-  const initialPrompts: Prompt[] = items
+  const parsedPrompts: Prompt[] = items
     ? JSON.parse(items as string)
     : [];
 
+  // Keep older saved prompts compatible with accepted answers.
+  const initialPrompts: Prompt[] = parsedPrompts.map((prompt) => ({
+    ...prompt,
+    acceptedAnswers: prompt.acceptedAnswers ?? [],
+  }));
+
   const [prompts, setPrompts] = useState<Prompt[]>(initialPrompts);
   const [isEditing, setIsEditing] = useState(false);
+
+  // Keep accepted answers as plain text while the user is editing.
+  const [acceptedAnswersText, setAcceptedAnswersText] = useState<string[]>(
+    initialPrompts.map((prompt) =>
+      (prompt.acceptedAnswers ?? []).join(', ')
+    )
+  );
 
   function updatePrompt(
     index: number,
@@ -41,10 +55,34 @@ export default function TopicSummaryScreen() {
     setPrompts(updatedPrompts);
   }
 
+  function updateAcceptedAnswersText(
+    index: number,
+    value: string
+  ) {
+    const updatedText = [...acceptedAnswersText];
+
+    updatedText[index] = value;
+
+    setAcceptedAnswersText(updatedText);
+  }
+
   async function saveChanges() {
+    // Convert comma-separated text into accepted answer arrays only on save.
+    const updatedPrompts = prompts.map((prompt, index) => ({
+      ...prompt,
+      question: prompt.question.trim(),
+      answer: prompt.answer.trim(),
+      acceptedAnswers: (acceptedAnswersText[index] ?? '')
+        .split(',')
+        .map((answer) => answer.trim())
+        .filter(Boolean),
+    }));
+
+    setPrompts(updatedPrompts);
+
     await AsyncStorage.setItem(
       `topic-items-${topicName}`,
-      JSON.stringify(prompts)
+      JSON.stringify(updatedPrompts)
     );
 
     setIsEditing(false);
@@ -78,41 +116,68 @@ export default function TopicSummaryScreen() {
           <View key={index} style={styles.tableRow}>
             {isEditing ? (
               <>
-                <TextInput
-                  style={[
-                    styles.inputCell,
-                    styles.questionColumn,
-                  ]}
-                  value={prompt.question}
-                  onChangeText={(value) =>
-                    updatePrompt(index, 'question', value)
-                  }
-                  autoCorrect={false}
-                  autoCapitalize="none"
-                />
+                <View style={styles.questionColumn}>
+                  <TextInput
+                    style={styles.inputCell}
+                    value={prompt.question}
+                    onChangeText={(value) =>
+                      updatePrompt(index, 'question', value)
+                    }
+                    autoCorrect={false}
+                    autoCapitalize="none"
+                  />
+                </View>
 
-                <TextInput
-                  style={[
-                    styles.inputCell,
-                    styles.answerColumn,
-                  ]}
-                  value={prompt.answer}
-                  onChangeText={(value) =>
-                    updatePrompt(index, 'answer', value)
-                  }
-                  autoCorrect={false}
-                  autoCapitalize="none"
-                />
+                <View style={styles.answerColumn}>
+                  <TextInput
+                    style={styles.inputCell}
+                    value={prompt.answer}
+                    onChangeText={(value) =>
+                      updatePrompt(index, 'answer', value)
+                    }
+                    autoCorrect={false}
+                    autoCapitalize="none"
+                  />
+
+                  <TextInput
+                    style={[
+                      styles.inputCell,
+                      styles.acceptedAnswersInput,
+                    ]}
+                    value={acceptedAnswersText[index] ?? ''}
+                    onChangeText={(value) =>
+                      updateAcceptedAnswersText(index, value)
+                    }
+                    placeholder="Also accept..."
+                    autoCorrect={false}
+                    autoCapitalize="none"
+                  />
+                </View>
               </>
             ) : (
               <>
-                <Text style={[styles.cell, styles.questionColumn]}>
+                <Text
+                  style={[
+                    styles.cell,
+                    styles.questionColumn,
+                  ]}
+                >
                   {index + 1}. {prompt.question}
                 </Text>
 
-                <Text style={[styles.cell, styles.answerColumn]}>
-                  {prompt.answer}
-                </Text>
+                <View style={styles.answerColumn}>
+                  <Text style={styles.cell}>
+                    {prompt.answer}
+                  </Text>
+
+                  {prompt.acceptedAnswers &&
+                    prompt.acceptedAnswers.length > 0 && (
+                      <Text style={styles.acceptedAnswers}>
+                        Also accept:{' '}
+                        {prompt.acceptedAnswers.join(', ')}
+                      </Text>
+                    )}
+                </View>
               </>
             )}
           </View>
@@ -195,7 +260,7 @@ const styles = StyleSheet.create({
 
   tableRow: {
     flexDirection: 'row',
-    alignItems: 'center',
+    alignItems: 'flex-start',
     borderBottomWidth: 1,
     borderBottomColor: '#E5E5E5',
     paddingVertical: 10,
@@ -211,12 +276,22 @@ const styles = StyleSheet.create({
   },
 
   inputCell: {
+    width: '100%',
     fontSize: 15,
     borderWidth: 1,
     borderColor: '#CCCCCC',
     borderRadius: 6,
     padding: 8,
-    marginRight: 6,
+  },
+
+  acceptedAnswersInput: {
+    marginTop: 6,
+  },
+
+  acceptedAnswers: {
+    fontSize: 12,
+    color: '#777777',
+    marginTop: 4,
   },
 
   questionColumn: {
