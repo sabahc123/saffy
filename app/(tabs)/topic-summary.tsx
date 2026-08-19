@@ -1,5 +1,5 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import { useLocalSearchParams } from 'expo-router';
+import { useLocalSearchParams, useRouter } from 'expo-router';
 import { useState } from 'react';
 import {
   Pressable,
@@ -17,6 +17,7 @@ type Prompt = {
 
 export default function TopicSummaryScreen() {
   const { topicName, items } = useLocalSearchParams();
+  const router = useRouter();
 
   const initialPrompts: Prompt[] = items
     ? JSON.parse(items as string)
@@ -137,6 +138,15 @@ export default function TopicSummaryScreen() {
           isEditing && styles.startButtonDisabled,
         ]}
         disabled={isEditing}
+        onPress={() =>
+          router.push({
+            pathname: '/lesson',
+            params: {
+              topicName,
+              items: JSON.stringify(prompts),
+            },
+          })
+        }
       >
         <Text style={styles.startButtonText}>
           Start Lesson
