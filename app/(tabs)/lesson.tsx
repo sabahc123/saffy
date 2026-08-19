@@ -1,6 +1,7 @@
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import {
+    Alert,
     KeyboardAvoidingView,
     Platform,
     Pressable,
@@ -64,6 +65,25 @@ export default function LessonScreen() {
   }, [countdown]);
 
   const currentPrompt = shuffledPrompts[currentIndex];
+
+  // Ask for confirmation before abandoning the current lesson.
+  function confirmQuitLesson() {
+    Alert.alert(
+      'Quit lesson?',
+      'Your progress in this lesson will be lost.',
+      [
+        {
+          text: 'Keep Learning',
+          style: 'cancel',
+        },
+        {
+          text: 'Quit Lesson',
+          style: 'destructive',
+          onPress: () => router.back(),
+        },
+      ]
+    );
+  }
 
   // Record the response and advance to the next prompt.
   function moveToNextQuestion(answer: LessonAnswer) {
@@ -146,7 +166,7 @@ export default function LessonScreen() {
               {currentIndex + 1} of {shuffledPrompts.length}
             </Text>
 
-            <Pressable onPress={() => router.back()}>
+            <Pressable onPress={confirmQuitLesson}>
               <Text style={styles.quitButton}>
                 Quit Lesson
               </Text>
