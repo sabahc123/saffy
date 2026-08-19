@@ -1,3 +1,4 @@
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import {
   Pressable,
@@ -23,6 +24,27 @@ export default function TopicSummaryScreen() {
         editIndex: index.toString(),
       },
     });
+  }
+
+  async function saveTopic() {
+    const savedTopics = await AsyncStorage.getItem('saved-topics');
+
+    const topicNames: string[] = savedTopics
+      ? JSON.parse(savedTopics)
+      : [];
+
+    const currentTopicName = String(topicName);
+
+    if (!topicNames.includes(currentTopicName)) {
+      topicNames.push(currentTopicName);
+    }
+
+    await AsyncStorage.setItem(
+      'saved-topics',
+      JSON.stringify(topicNames)
+    );
+
+    router.replace('/');
   }
 
   return (
@@ -72,6 +94,13 @@ export default function TopicSummaryScreen() {
           )
         )}
       </ScrollView>
+
+      <Pressable
+        style={styles.saveButton}
+        onPress={saveTopic}
+      >
+        <Text style={styles.saveButtonText}>Save Topic</Text>
+      </Pressable>
     </View>
   );
 }
@@ -147,6 +176,21 @@ const styles = StyleSheet.create({
 
   editButton: {
     fontSize: 14,
+    fontWeight: '600',
+  },
+
+  saveButton: {
+    width: '100%',
+    padding: 16,
+    borderRadius: 10,
+    backgroundColor: '#000000',
+    alignItems: 'center',
+    marginTop: 16,
+  },
+
+  saveButtonText: {
+    color: '#FFFFFF',
+    fontSize: 16,
     fontWeight: '600',
   },
 });
