@@ -55,14 +55,35 @@ export default function HomeScreen() {
                 : topic.name;
 
             return (
-              <View
+              <Pressable
                 key={`${topicName}-${index}`}
                 style={styles.topicCard}
+                onPress={async () => {
+                  const savedItems = await AsyncStorage.getItem(
+                    `topic-items-${topicName}`
+                  );
+
+                  const items = savedItems
+                    ? JSON.parse(savedItems)
+                    : [];
+
+                  router.push({
+                    pathname: '/topic-summary',
+                    params: {
+                      topicName,
+                      items: JSON.stringify(items),
+                    },
+                  });
+                }}
               >
                 <Text style={styles.topicName}>
                   {topicName}
                 </Text>
-              </View>
+
+                <Text style={styles.topicHint}>
+                  Tap to preview lesson
+                </Text>
+              </Pressable>
             );
           })}
         </View>
@@ -114,6 +135,12 @@ const styles = StyleSheet.create({
   topicName: {
     fontSize: 18,
     fontWeight: '600',
+  },
+
+  topicHint: {
+    fontSize: 14,
+    color: '#666666',
+    marginTop: 4,
   },
 
   addButton: {
