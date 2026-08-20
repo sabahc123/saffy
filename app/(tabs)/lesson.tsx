@@ -21,6 +21,7 @@ type Prompt = {
 type LessonAnswer = {
   question: string;
   correctAnswer: string;
+  acceptedAnswers?: string[];
   userAnswer: string;
   skipped: boolean;
   isCorrect: boolean;
@@ -39,7 +40,6 @@ export default function LessonScreen() {
     return [...originalPrompts].sort(() => Math.random() - 0.5);
   }, [items]);
 
-  // Track the user's progress through the current lesson.
   const [countdown, setCountdown] = useState(3);
   const [lessonStarted, setLessonStarted] = useState(false);
   const [currentIndex, setCurrentIndex] = useState(0);
@@ -70,11 +70,6 @@ export default function LessonScreen() {
 
   const currentPrompt = shuffledPrompts[currentIndex];
 
-  /*
-   * Normalise answers before comparing them.
-   * Capitalisation, extra spaces and leading English articles
-   * should not affect whether an answer is considered correct.
-   */
   function normaliseAnswer(answer: string) {
     return answer
       .trim()
@@ -83,7 +78,7 @@ export default function LessonScreen() {
       .replace(/^(a|an|the)\s+/i, '');
   }
 
-  // Check the primary answer and any alternatives the user has chosen to accept.
+  // Check the primary answer and any alternatives chosen by the learner.
   function checkAnswer(prompt: Prompt, submittedAnswer: string) {
     const acceptableAnswers = [
       prompt.answer,
@@ -100,7 +95,6 @@ export default function LessonScreen() {
     );
   }
 
-  // Ask for confirmation before abandoning the current lesson.
   function confirmQuitLesson() {
     Alert.alert(
       'Quit lesson?',
@@ -119,7 +113,7 @@ export default function LessonScreen() {
     );
   }
 
-  // Show feedback briefly before moving to the next prompt.
+  // Show feedback briefly before advancing to the next prompt.
   function recordAnswer(answer: LessonAnswer) {
     const updatedAnswers = [...lessonAnswers, answer];
 
@@ -133,8 +127,14 @@ export default function LessonScreen() {
 
     setTimeout(() => {
       if (isLastQuestion) {
-        // Results screen will be connected here next.
-        console.log(updatedAnswers);
+        router.replace({
+          pathname: '/results',
+          params: {
+            topicName,
+            results: JSON.stringify(updatedAnswers),
+          },
+        });
+
         return;
       }
 
@@ -163,6 +163,7 @@ export default function LessonScreen() {
     recordAnswer({
       question: currentPrompt.question,
       correctAnswer: currentPrompt.answer,
+      acceptedAnswers: currentPrompt.acceptedAnswers ?? [],
       userAnswer: submittedAnswer,
       skipped: false,
       isCorrect,
@@ -177,6 +178,7 @@ export default function LessonScreen() {
     recordAnswer({
       question: currentPrompt.question,
       correctAnswer: currentPrompt.answer,
+      acceptedAnswers: currentPrompt.acceptedAnswers ?? [],
       userAnswer: '',
       skipped: true,
       isCorrect: false,
@@ -297,7 +299,6 @@ export default function LessonScreen() {
   );
 }
 
-// Lesson screen styling.
 const styles = StyleSheet.create({
   container: {
     flex: 1,
