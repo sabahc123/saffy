@@ -274,3 +274,52 @@ uses that evidence to decide what the learner needs next.
 Give Saffy what you need to know.
 Saffy learns what you're likely to forget.
 Saffy brings it back when your memory needs it.
+
+
+## 2nd September 2026
+
+### Visual representation of memory progress
+
+Saffy may use a numerical or visual indicator to help learners understand
+the relative strength of individual memories.
+
+The indicator should reflect a memory's learning history and underlying
+memory evidence rather than simply the percentage of questions answered
+correctly.
+
+The methodology for calculating this indicator is OPEN.
+
+Although "Seeded" is used as a memory state, Saffy should avoid literal
+plant-growing or watering mechanics. The visual representation of memory
+progress should have its own distinct identity.
+
+## Moving Between Memory States
+
+Memories can move both forwards and backwards as Saffy gathers new evidence
+about the learner's ability to recall them.
+
+- Seeded + correct → Depositing
+- Seeded + incorrect/skipped → Seeded
+- Depositing + correct → Depositing
+- Depositing + incorrect/skipped → Seeded
+- Banked + correct → Banked
+- Banked + incorrect/skipped → Depositing
+
+Moving backwards does not erase previous learning history. Saffy retains all
+previous attempts and uses them when assessing and scheduling the memory.
+
+A future numerical or visual memory indicator may help learners understand
+their relative strengths and weaknesses without relying on memory state alone.
+
+The methodology for this indicator is OPEN.
+
+### Incorrect answers during a lesson
+
+Incorrect or skipped memories are not automatically repeated within the same
+lesson.
+
+Saffy records the failed retrieval, updates the memory's state and learning
+history, and determines when the memory should next be tested.
+
+The learner does not need to immediately answer an incorrect memory correctly
+in order to complete a lesson.
