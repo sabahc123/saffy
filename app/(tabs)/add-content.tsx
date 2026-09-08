@@ -10,10 +10,14 @@ import {
   View,
 } from 'react-native';
 
+type MemoryState = 'seeded' | 'depositing' | 'banked';
+
 type Prompt = {
+  id: string;
   question: string;
   answer: string;
   acceptedAnswers: string[];
+  memoryState: MemoryState;
 };
 
 export default function AddContentScreen() {
@@ -29,6 +33,10 @@ export default function AddContentScreen() {
 
   const questionInputRef = useRef<TextInput>(null);
 
+  function createPromptId() {
+    return `${Date.now()}-${Math.random().toString(36).slice(2, 9)}`;
+  }
+
   function addItem() {
     if (!question.trim() || !answer.trim()) {
       return;
@@ -39,20 +47,31 @@ export default function AddContentScreen() {
       .map((item) => item.trim())
       .filter(Boolean);
 
-    const prompt: Prompt = {
-      question: question.trim(),
-      answer: answer.trim(),
-      acceptedAnswers,
-    };
-
     if (editingIndex !== null) {
+      const existingPrompt = items[editingIndex];
+
+      const updatedPrompt: Prompt = {
+        ...existingPrompt,
+        question: question.trim(),
+        answer: answer.trim(),
+        acceptedAnswers,
+      };
+
       const updatedItems = [...items];
-      updatedItems[editingIndex] = prompt;
+      updatedItems[editingIndex] = updatedPrompt;
 
       setItems(updatedItems);
       setEditingIndex(null);
     } else {
-      setItems([...items, prompt]);
+      const newPrompt: Prompt = {
+        id: createPromptId(),
+        question: question.trim(),
+        answer: answer.trim(),
+        acceptedAnswers,
+        memoryState: 'seeded',
+      };
+
+      setItems([...items, newPrompt]);
     }
 
     setQuestion('');
@@ -86,16 +105,34 @@ export default function AddContentScreen() {
       if (savedItems) {
         const parsedItems = JSON.parse(savedItems);
 
-        // Older prompts may not yet contain acceptedAnswers.
+        /*
+         * Older prompts may not contain:
+         * - id
+         * - acceptedAnswers
+         * - memoryState
+         *
+         * This upgrades them when they are loaded.
+         */
         const normalisedItems: Prompt[] = parsedItems.map(
-          (item: {
-            question: string;
-            answer: string;
-            acceptedAnswers?: string[];
-          }) => ({
+          (
+            item: {
+              id?: string;
+              question: string;
+              answer: string;
+              acceptedAnswers?: string[];
+              memoryState?: MemoryState;
+            },
+            index: number
+          ) => ({
+            id:
+              item.id ??
+              `${Date.now()}-${index}-${Math.random()
+                .toString(36)
+                .slice(2, 9)}`,
             question: item.question,
             answer: item.answer,
             acceptedAnswers: item.acceptedAnswers ?? [],
+            memoryState: item.memoryState ?? 'seeded',
           })
         );
 
@@ -199,7 +236,7 @@ export default function AddContentScreen() {
 
       <ScrollView style={styles.list}>
         {items.map((item, index) => (
-          <View key={index} style={styles.item}>
+          <View key={item.id} style={styles.item}>
             <View style={styles.itemText}>
               <Text style={styles.itemQuestion}>
                 {index + 1}. {item.question}
