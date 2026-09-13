@@ -1,24 +1,32 @@
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import {
-    Alert,
-    Keyboard,
-    KeyboardAvoidingView,
-    Platform,
-    Pressable,
-    StyleSheet,
-    Text,
-    TextInput,
-    View,
+  Alert,
+  Keyboard,
+  KeyboardAvoidingView,
+  Platform,
+  Pressable,
+  StyleSheet,
+  Text,
+  TextInput,
+  View,
 } from 'react-native';
+import { Card, createEmptyCard, fsrs, Rating } from 'ts-fsrs';
+
+type MemoryState = 'seeded' | 'depositing' | 'banked';
 
 type Prompt = {
+  id: string;
   question: string;
   answer: string;
   acceptedAnswers?: string[];
+  memoryState: MemoryState;
+  fsrsCard: Card;
 };
 
 type LessonAnswer = {
+  id: string;
   question: string;
   correctAnswer: string;
   acceptedAnswers?: string[];
@@ -27,12 +35,21 @@ type LessonAnswer = {
   isCorrect: boolean;
 };
 
+const scheduler = fsrs({
+  enable_short_term: false,
+});
+
 export default function LessonScreen() {
   const { topicName, items } = useLocalSearchParams();
   const router = useRouter();
 
   const originalPrompts: Prompt[] = items
-    ? JSON.parse(items as string)
+    ? JSON.parse(items as string).map(
+        (prompt: Prompt) => ({
+          ...prompt,
+          fsrsCard: restoreFsrsCard(prompt.fsrsCard),
+        })
+      )
     : [];
 
   // Randomise the prompts once at the beginning of each lesson.
@@ -48,6 +65,21 @@ export default function LessonScreen() {
   const [feedback, setFeedback] = useState<LessonAnswer | null>(null);
 
   const answerInputRef = useRef<TextInput>(null);
+
+  function restoreFsrsCard(card?: Partial<Card>): Card {
+    if (!card) {
+      return createEmptyCard();
+    }
+
+    return {
+      ...createEmptyCard(),
+      ...card,
+      due: card.due ? new Date(card.due) : new Date(),
+      last_review: card.last_review
+        ? new Date(card.last_review)
+        : undefined,
+    };
+  }
 
   // Run the 3-2-1 countdown, then automatically open the keyboard.
   useEffect(() => {
@@ -95,6 +127,76 @@ export default function LessonScreen() {
     );
   }
 
+  function getUpdatedMemoryState(
+    currentState: MemoryState,
+    isCorrect: boolean
+  ): MemoryState {
+    if (isCorrect) {
+      if (currentState === 'seeded') {
+        return 'depositing';
+      }
+
+      return currentState;
+    }
+
+    if (currentState === 'depositing') {
+      return 'seeded';
+    }
+
+    if (currentState === 'banked') {
+      return 'depositing';
+    }
+
+    return 'seeded';
+  }
+
+  async function updateMemoryAfterAnswer(
+    prompt: Prompt,
+    isCorrect: boolean
+  ) {
+    const rating = isCorrect
+      ? Rating.Good
+      : Rating.Again;
+
+    const result = scheduler.next(
+      restoreFsrsCard(prompt.fsrsCard),
+      new Date(),
+      rating
+    );
+
+    const storageKey = `topic-items-${topicName}`;
+
+    const savedItems = await AsyncStorage.getItem(storageKey);
+
+    if (!savedItems) {
+      return;
+    }
+
+    const storedPrompts: Prompt[] = JSON.parse(savedItems);
+
+    const updatedPrompts = storedPrompts.map(
+      (storedPrompt) => {
+        if (storedPrompt.id !== prompt.id) {
+          return storedPrompt;
+        }
+
+        return {
+          ...storedPrompt,
+          memoryState: getUpdatedMemoryState(
+            storedPrompt.memoryState ?? 'seeded',
+            isCorrect
+          ),
+          fsrsCard: result.card,
+        };
+      }
+    );
+
+    await AsyncStorage.setItem(
+      storageKey,
+      JSON.stringify(updatedPrompts)
+    );
+  }
+
   function confirmQuitLesson() {
     Alert.alert(
       'Quit lesson?',
@@ -114,13 +216,20 @@ export default function LessonScreen() {
   }
 
   // Show feedback briefly before advancing to the next prompt.
-  function recordAnswer(answer: LessonAnswer) {
+  async function recordAnswer(answer: LessonAnswer) {
     const updatedAnswers = [...lessonAnswers, answer];
 
     setLessonAnswers(updatedAnswers);
     setFeedback(answer);
 
     Keyboard.dismiss();
+
+    if (currentPrompt) {
+      await updateMemoryAfterAnswer(
+        currentPrompt,
+        answer.isCorrect
+      );
+    }
 
     const isLastQuestion =
       currentIndex === shuffledPrompts.length - 1;
@@ -161,6 +270,7 @@ export default function LessonScreen() {
     );
 
     recordAnswer({
+      id: currentPrompt.id,
       question: currentPrompt.question,
       correctAnswer: currentPrompt.answer,
       acceptedAnswers: currentPrompt.acceptedAnswers ?? [],
@@ -176,6 +286,7 @@ export default function LessonScreen() {
     }
 
     recordAnswer({
+      id: currentPrompt.id,
       question: currentPrompt.question,
       correctAnswer: currentPrompt.answer,
       acceptedAnswers: currentPrompt.acceptedAnswers ?? [],

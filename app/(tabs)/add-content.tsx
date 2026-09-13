@@ -9,6 +9,7 @@ import {
   TextInput,
   View,
 } from 'react-native';
+import { Card, createEmptyCard } from 'ts-fsrs';
 
 type MemoryState = 'seeded' | 'depositing' | 'banked';
 
@@ -18,6 +19,7 @@ type Prompt = {
   answer: string;
   acceptedAnswers: string[];
   memoryState: MemoryState;
+  fsrsCard: Card;
 };
 
 export default function AddContentScreen() {
@@ -35,6 +37,21 @@ export default function AddContentScreen() {
 
   function createPromptId() {
     return `${Date.now()}-${Math.random().toString(36).slice(2, 9)}`;
+  }
+
+  function restoreFsrsCard(card?: Partial<Card>): Card {
+    if (!card) {
+      return createEmptyCard();
+    }
+
+    return {
+      ...createEmptyCard(),
+      ...card,
+      due: card.due ? new Date(card.due) : new Date(),
+      last_review: card.last_review
+        ? new Date(card.last_review)
+        : undefined,
+    };
   }
 
   function addItem() {
@@ -69,6 +86,7 @@ export default function AddContentScreen() {
         answer: answer.trim(),
         acceptedAnswers,
         memoryState: 'seeded',
+        fsrsCard: createEmptyCard(),
       };
 
       setItems([...items, newPrompt]);
@@ -110,6 +128,7 @@ export default function AddContentScreen() {
          * - id
          * - acceptedAnswers
          * - memoryState
+         * - fsrsCard
          *
          * This upgrades them when they are loaded.
          */
@@ -121,6 +140,7 @@ export default function AddContentScreen() {
               answer: string;
               acceptedAnswers?: string[];
               memoryState?: MemoryState;
+              fsrsCard?: Partial<Card>;
             },
             index: number
           ) => ({
@@ -133,6 +153,7 @@ export default function AddContentScreen() {
             answer: item.answer,
             acceptedAnswers: item.acceptedAnswers ?? [],
             memoryState: item.memoryState ?? 'seeded',
+            fsrsCard: restoreFsrsCard(item.fsrsCard),
           })
         );
 
