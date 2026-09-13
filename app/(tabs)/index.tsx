@@ -7,6 +7,7 @@ import {
   Text,
   View,
 } from 'react-native';
+import { getDueMemories } from '../../utils/memory-scheduling';
 
 type SavedTopic =
   | string
@@ -21,18 +22,46 @@ type SavedTopic =
 export default function HomeScreen() {
   const router = useRouter();
   const [topics, setTopics] = useState<SavedTopic[]>([]);
+  const [dueCount, setDueCount] = useState(0);
 
   useFocusEffect(
     useCallback(() => {
-      async function loadTopics() {
-        const savedTopics = await AsyncStorage.getItem('saved-topics');
+     async function loadTopics() {
+  const savedTopics = await AsyncStorage.getItem('saved-topics');
 
-        if (savedTopics) {
-          setTopics(JSON.parse(savedTopics));
-        } else {
-          setTopics([]);
-        }
-      }
+  if (!savedTopics) {
+    setTopics([]);
+    setDueCount(0);
+    return;
+  }
+
+  const parsedTopics: SavedTopic[] = JSON.parse(savedTopics);
+
+  setTopics(parsedTopics);
+
+  const topicMemories = await Promise.all(
+    parsedTopics.map(async (topic) => {
+      const topicName =
+        typeof topic === 'string'
+          ? topic
+          : topic.name;
+
+      const savedItems = await AsyncStorage.getItem(
+        `topic-items-${topicName}`
+      );
+
+      return savedItems ? JSON.parse(savedItems) : [];
+    })
+  );
+
+  const allMemories = topicMemories.flat();
+
+  const dueMemories = getDueMemories(allMemories);
+
+  setDueCount(dueMemories.length);
+
+  console.log('HOME DUE COUNT', dueMemories.length);
+  }
 
       loadTopics();
     }, [])

@@ -52,6 +52,7 @@ export default function LessonScreen() {
       )
     : [];
 
+
   // Randomise the prompts once at the beginning of each lesson.
   const shuffledPrompts = useMemo(() => {
     return [...originalPrompts].sort(() => Math.random() - 0.5);

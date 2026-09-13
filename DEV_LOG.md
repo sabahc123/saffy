@@ -370,3 +370,23 @@ Home
 The first end-to-end adaptive Saffy learning loop is now functional locally.
 
 The next major architectural milestone is replacing simple latest-result pile logic with a persistent per-prompt memory model, potentially powered by FSRS.
+
+
+## 13 September 2026 – FSRS Scheduling & Due Memory Detection
+
+### Completed
+
+- Integrated `ts-fsrs` into the lesson flow so each answered memory updates its individual FSRS card.
+- Mapped Saffy lesson results to FSRS:
+  - Correct → `Rating.Good`
+  - Incorrect → `Rating.Again`
+  - Skipped → `Rating.Again`
+- Tested FSRS scheduling using real lesson results.
+- Confirmed the default FSRS short-term learning behaviour was scheduling:
+  - Incorrect memories approximately 1 minute later.
+  - Correct memories approximately 10 minutes later.
+- Disabled FSRS short-term learning/relearning for the MVP using:
+  ```ts
+  const scheduler = fsrs({
+    enable_short_term: false,
+  });
