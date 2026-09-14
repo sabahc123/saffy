@@ -19,49 +19,75 @@ type SavedTopic =
       }[];
     };
 
+type HomeMemory = {
+  id: string;
+  question: string;
+  answer: string;
+  acceptedAnswers?: string[];
+  fsrsCard: {
+    due: Date | string;
+    [key: string]: unknown;
+  };
+  sourceTopicName: string;
+  [key: string]: unknown;
+};
+
 export default function HomeScreen() {
   const router = useRouter();
+
   const [topics, setTopics] = useState<SavedTopic[]>([]);
-  const [dueCount, setDueCount] = useState(0);
+  const [dueMemories, setDueMemories] = useState<HomeMemory[]>([]);
+
+  const dueCount = dueMemories.length;
 
   useFocusEffect(
     useCallback(() => {
-     async function loadTopics() {
-  const savedTopics = await AsyncStorage.getItem('saved-topics');
+      async function loadTopics() {
+        const savedTopics =
+          await AsyncStorage.getItem('saved-topics');
 
-  if (!savedTopics) {
-    setTopics([]);
-    setDueCount(0);
-    return;
-  }
+        if (!savedTopics) {
+          setTopics([]);
+          setDueMemories([]);
+          return;
+        }
 
-  const parsedTopics: SavedTopic[] = JSON.parse(savedTopics);
+        const parsedTopics: SavedTopic[] =
+          JSON.parse(savedTopics);
 
-  setTopics(parsedTopics);
+        setTopics(parsedTopics);
 
-  const topicMemories = await Promise.all(
-    parsedTopics.map(async (topic) => {
-      const topicName =
-        typeof topic === 'string'
-          ? topic
-          : topic.name;
+        const topicMemories = await Promise.all(
+          parsedTopics.map(async (topic) => {
+            const topicName =
+              typeof topic === 'string'
+                ? topic
+                : topic.name;
 
-      const savedItems = await AsyncStorage.getItem(
-        `topic-items-${topicName}`
-      );
+            const savedItems =
+              await AsyncStorage.getItem(
+                `topic-items-${topicName}`
+              );
 
-      return savedItems ? JSON.parse(savedItems) : [];
-    })
-  );
+            const memories = savedItems
+              ? JSON.parse(savedItems)
+              : [];
 
-  const allMemories = topicMemories.flat();
+            return memories.map((memory: HomeMemory) => ({
+              ...memory,
+              sourceTopicName: topicName,
+            }));
+          })
+        );
 
-  const dueMemories = getDueMemories(allMemories);
+        const allMemories =
+          topicMemories.flat() as HomeMemory[];
 
-  setDueCount(dueMemories.length);
+        const memoriesDue =
+          getDueMemories(allMemories);
 
-  console.log('HOME DUE COUNT', dueMemories.length);
-  }
+        setDueMemories(memoriesDue);
+      }
 
       loadTopics();
     }, [])
@@ -88,9 +114,10 @@ export default function HomeScreen() {
                 key={`${topicName}-${index}`}
                 style={styles.topicCard}
                 onPress={async () => {
-                  const savedItems = await AsyncStorage.getItem(
-                    `topic-items-${topicName}`
-                  );
+                  const savedItems =
+                    await AsyncStorage.getItem(
+                      `topic-items-${topicName}`
+                    );
 
                   const items = savedItems
                     ? JSON.parse(savedItems)

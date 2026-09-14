@@ -23,6 +23,7 @@ type Prompt = {
   acceptedAnswers?: string[];
   memoryState: MemoryState;
   fsrsCard: Card;
+  sourceTopicName?: string;
 };
 
 type LessonAnswer = {
@@ -51,7 +52,6 @@ export default function LessonScreen() {
         })
       )
     : [];
-
 
   // Randomise the prompts once at the beginning of each lesson.
   const shuffledPrompts = useMemo(() => {
@@ -112,7 +112,10 @@ export default function LessonScreen() {
   }
 
   // Check the primary answer and any alternatives chosen by the learner.
-  function checkAnswer(prompt: Prompt, submittedAnswer: string) {
+  function checkAnswer(
+    prompt: Prompt,
+    submittedAnswer: string
+  ) {
     const acceptableAnswers = [
       prompt.answer,
       ...(prompt.acceptedAnswers ?? []),
@@ -165,15 +168,25 @@ export default function LessonScreen() {
       rating
     );
 
-    const storageKey = `topic-items-${topicName}`;
+    const memoryTopicName =
+      prompt.sourceTopicName ?? topicName;
 
-    const savedItems = await AsyncStorage.getItem(storageKey);
+    if (!memoryTopicName) {
+      return;
+    }
+
+    const storageKey =
+      `topic-items-${memoryTopicName}`;
+
+    const savedItems =
+      await AsyncStorage.getItem(storageKey);
 
     if (!savedItems) {
       return;
     }
 
-    const storedPrompts: Prompt[] = JSON.parse(savedItems);
+    const storedPrompts: Prompt[] =
+      JSON.parse(savedItems);
 
     const updatedPrompts = storedPrompts.map(
       (storedPrompt) => {
@@ -248,7 +261,9 @@ export default function LessonScreen() {
         return;
       }
 
-      setCurrentIndex((current) => current + 1);
+      setCurrentIndex(
+        (current) => current + 1
+      );
       setUserAnswer('');
       setFeedback(null);
 
@@ -259,7 +274,11 @@ export default function LessonScreen() {
   }
 
   function submitAnswer() {
-    if (!currentPrompt || !userAnswer.trim() || feedback) {
+    if (
+      !currentPrompt ||
+      !userAnswer.trim() ||
+      feedback
+    ) {
       return;
     }
 
@@ -274,7 +293,8 @@ export default function LessonScreen() {
       id: currentPrompt.id,
       question: currentPrompt.question,
       correctAnswer: currentPrompt.answer,
-      acceptedAnswers: currentPrompt.acceptedAnswers ?? [],
+      acceptedAnswers:
+        currentPrompt.acceptedAnswers ?? [],
       userAnswer: submittedAnswer,
       skipped: false,
       isCorrect,
@@ -290,7 +310,8 @@ export default function LessonScreen() {
       id: currentPrompt.id,
       question: currentPrompt.question,
       correctAnswer: currentPrompt.answer,
-      acceptedAnswers: currentPrompt.acceptedAnswers ?? [],
+      acceptedAnswers:
+        currentPrompt.acceptedAnswers ?? [],
       userAnswer: '',
       skipped: true,
       isCorrect: false,
@@ -300,7 +321,11 @@ export default function LessonScreen() {
   return (
     <KeyboardAvoidingView
       style={styles.container}
-      behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+      behavior={
+        Platform.OS === 'ios'
+          ? 'padding'
+          : undefined
+      }
     >
       {!lessonStarted ? (
         <View style={styles.countdownContainer}>
@@ -327,10 +352,13 @@ export default function LessonScreen() {
 
           <View style={styles.topRow}>
             <Text style={styles.progressText}>
-              {currentIndex + 1} of {shuffledPrompts.length}
+              {currentIndex + 1} of{' '}
+              {shuffledPrompts.length}
             </Text>
 
-            <Pressable onPress={confirmQuitLesson}>
+            <Pressable
+              onPress={confirmQuitLesson}
+            >
               <Text style={styles.quitButton}>
                 Quit Lesson
               </Text>
@@ -357,7 +385,9 @@ export default function LessonScreen() {
           </View>
 
           {feedback ? (
-            <View style={styles.feedbackContainer}>
+            <View
+              style={styles.feedbackContainer}
+            >
               <Text
                 style={
                   feedback.isCorrect
@@ -371,9 +401,15 @@ export default function LessonScreen() {
               </Text>
 
               {!feedback.isCorrect && (
-                <Text style={styles.correctAnswer}>
+                <Text
+                  style={styles.correctAnswer}
+                >
                   Correct answer:{' '}
-                  <Text style={styles.correctAnswerText}>
+                  <Text
+                    style={
+                      styles.correctAnswerText
+                    }
+                  >
                     {feedback.correctAnswer}
                   </Text>
                 </Text>
@@ -390,7 +426,9 @@ export default function LessonScreen() {
                 disabled={!userAnswer.trim()}
                 onPress={submitAnswer}
               >
-                <Text style={styles.submitButtonText}>
+                <Text
+                  style={styles.submitButtonText}
+                >
                   Submit Answer
                 </Text>
               </Pressable>
@@ -399,7 +437,9 @@ export default function LessonScreen() {
                 style={styles.skipButton}
                 onPress={skipQuestion}
               >
-                <Text style={styles.skipButtonText}>
+                <Text
+                  style={styles.skipButtonText}
+                >
                   Skip
                 </Text>
               </Pressable>
